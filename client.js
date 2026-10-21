@@ -565,6 +565,7 @@ window.__ModuleLoader__.load({
     // --- 视图 2：右侧边栏 / 下侧边栏工作台面板（用于 BetterSidebar & 原生侧栏） ---
     function SidebarPanel({ hub, controller }) {
       const [snap, setSnap] = React.useState(() => hub.getSnapshot());
+      const [copied, setCopied] = React.useState(false);
 
       React.useEffect(() => {
         return hub.subscribe(() => setSnap(hub.getSnapshot()));
@@ -574,12 +575,24 @@ window.__ModuleLoader__.load({
       const theme = getStatusTheme(status?.phase, form?.enabled);
       const disabled = !form?.writable || form?.saving;
 
+      const handleCopy = () => {
+        const addr = status?.entry || status?.upstream || '';
+        if (!addr) return;
+        const full = addr.startsWith('http') ? addr : `http://${addr}`;
+        if (typeof navigator !== 'undefined' && navigator?.clipboard?.writeText) {
+          navigator.clipboard.writeText(full).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          }).catch(() => {});
+        }
+      };
+
       return h('div', {
         style: {
           display: 'flex',
           flexDirection: 'column',
-          gap: 14,
-          padding: 16,
+          gap: 12,
+          padding: '14px 16px',
           height: '100%',
           boxSizing: 'border-box',
           overflowY: 'auto',
@@ -587,10 +600,10 @@ window.__ModuleLoader__.load({
           color: 'var(--dsw-alias-label-primary, inherit)'
         }
       },
-        // 顶部品牌条
+        // 顶部品牌与状态条
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 6, borderBottom: '1px solid var(--dsw-alias-border-l1, rgba(255,255,255,0.08))' } },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            h('span', { style: { fontSize: 18 } }, '🌐'),
+            h('span', { style: { fontSize: 16 } }, '🌐'),
             h('span', { style: { fontWeight: 600, fontSize: 14 } }, '自动代理控制台')
           ),
           h('div', { style: styles.badge(theme) },
@@ -599,7 +612,7 @@ window.__ModuleLoader__.load({
           )
         ),
 
-        // 核心一键主控卡片
+        // 核心一键主控卡片（唯一总控开关，避免下方重复按钮）
         h('div', { style: styles.section },
           h(ToggleSwitch, {
             checked: form?.enabled,
@@ -628,7 +641,7 @@ window.__ModuleLoader__.load({
           error ? h('p', { style: { margin: 0, fontSize: 12, color: 'var(--dsw-alias-state-error-primary, #f85149)' } }, error) : null
         ),
 
-        // 快速操作按钮
+        // 快速操作按钮：立即检测 + 复制代理入口（去除重复的开关按钮）
         h('div', { style: { display: 'flex', gap: 8 } },
           h('button', {
             type: 'button',
@@ -638,19 +651,15 @@ window.__ModuleLoader__.load({
           }, busy ? '正在检测…' : '↻ 立即检测'),
           h('button', {
             type: 'button',
-            disabled,
-            onClick: () => hub.toggleEnabled(),
-            style: {
-              ...styles.button(disabled),
-              flex: 1,
-              borderColor: form?.enabled ? 'var(--dsw-alias-border-l2, rgba(255,255,255,0.2))' : 'var(--dsw-alias-state-success-primary, #3fb950)',
-              color: form?.enabled ? 'inherit' : 'var(--dsw-alias-state-success-primary, #3fb950)'
-            }
-          }, form?.enabled ? '关闭代理' : '启动代理')
+            disabled: !status?.entry && !status?.upstream,
+            onClick: handleCopy,
+            title: '复制代理入口地址到剪贴板',
+            style: { ...styles.button(!status?.entry && !status?.upstream), flex: 1 }
+          }, copied ? '✓ 已复制入口' : '📋 复制入口')
         ),
 
-        // 快速设置区
-        h('div', { style: { ...styles.section, marginTop: 'auto' } },
+        // 快速设置区（移除原本导致大面积留白的 marginTop: 'auto'，紧凑排布）
+        h('div', { style: styles.section },
           h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
             h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--dsw-alias-label-secondary, #8b949e)' } }, '快捷设置'),
             form?.dirty ? h('span', { style: { fontSize: 11, color: 'var(--dsw-alias-brand-primary, #58a6ff)' } }, '● 有未保存更改') : null
@@ -693,6 +702,12 @@ window.__ModuleLoader__.load({
               }, '放弃')
             ) : null
           )
+        ),
+
+        // 紧凑底部辅助提示
+        h('div', { style: { padding: '4px 2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'var(--dsw-alias-label-secondary, #8b949e)' } },
+          h('span', null, '与侧边栏/底部栏/设置页实时同步'),
+          h('span', { style: { fontFamily: 'monospace', opacity: 0.7 } }, 'v1.0.5')
         )
       );
     }
