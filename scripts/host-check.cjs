@@ -20,7 +20,7 @@ async function main() {
   console.log('使用 DSH 原生 PluginPackages 依赖解析（未添加自定义解析 hook）');
   const native = await hostImport('@deepseek-ai/dsh-http-proxy');
   const { HttpFetchProvider, DEFAULT_USER_AGENT } = await hostImport('@deepseek-ai/dsh-web-fetch-http');
-  const { ProxyController } = await import('../lib/controller.mjs');
+  const { ProxyController } = await import(pathToFileURL(path.join(pluginRoot, 'lib/controller.mjs')).href);
   const plugin = await import(pathToFileURL(path.join(pluginRoot, 'index.mjs')).href);
   const packageInfo = JSON.parse(fs.readFileSync(path.join(base, '@deepseek-ai/dsh/package.json'), 'utf8'));
   console.log('DSH', packageInfo.version, '插件模块和原生配置 schema 加载成功');
@@ -63,19 +63,45 @@ async function main() {
     assert.equal(native.proxyRouteFor(new URL('https://github.com/')).proxied, beforeRoute.proxied);
     for (const [key, value] of Object.entries(beforeEnv)) assert.equal(process.env[key], value, key);
     console.log('关闭后原网络策略和环境变量已恢复');
-    let statusRoute;
-    scope.provide('webServer', { register: route => { statusRoute = route; return () => { statusRoute = undefined; }; } });
-    scope.provide('connection', { requestRejection: () => undefined });
+    let statusRoute, credentialRecord;
+    scope.provide('webServer', { host: '127.0.0.1', protocol: 'http:', register: route => {
+      if (route.path === '/plugins/auto-proxy/state') statusRoute = route;
+      return () => { if (statusRoute === route) statusRoute = undefined; };
+    } });
+    // Real browser authentication, with an isolated in-memory credential provider.
+    scope.provide('credentials', { modifyRecord: async (_key, update) => {
+      const changed = await update(credentialRecord);
+      if (changed !== undefined) credentialRecord = changed;
+      return credentialRecord;
+    } });
+    await scope.plugin(await hostImport('@deepseek-ai/dsh-client-connection'), {});
+    const authority = '127.0.0.1:30333';
+    const authUrl = new URL(scope.connection.authenticatedUrl(`http://${authority}/`));
+    let cookie;
+    scope.connection.authorizeIndex({ method: 'GET', url: authUrl.pathname + authUrl.search, headers: { host: authority } }, {
+      writeHead: (code, headers) => { assert.equal(code, 303); cookie = headers['set-cookie'].split(';', 1)[0]; }, end() {}
+    });
+    assert.ok(cookie, '应由真实 Connection 签发隔离测试 cookie');
     await scope.plugin(plugin, { enabled: true });
     let state;
     for (let i = 0; i < 48; i++) {
       await new Promise(resolve => setTimeout(resolve, 250));
-      if (statusRoute) await statusRoute.handler({ method: 'GET' }, { writeHead: code => assert.equal(code, 200), end: body => { state = JSON.parse(body); } });
+      if (statusRoute) await statusRoute.handler({ method: 'GET', headers: { host: authority, cookie } }, { writeHead: code => assert.equal(code, 200), end: body => { state = JSON.parse(body); } });
       if (state?.phase === 'connected') break;
       if (state?.phase === 'error') throw new Error(state.message);
     }
     assert.equal(state?.phase, 'connected', '原生 Cordis 挂载后应能自动接入并报告状态');
     console.log('真实 Cordis 挂载插件、定时检测和状态路由成功');
+    for (const method of ['GET', 'POST']) {
+      for (const [headers, expected] of [
+        [{ host: authority }, 401],
+        [{ host: authority, cookie: 'invalid=1' }, 401],
+        [{ host: 'evil.example', cookie }, 403],
+        [{ host: authority, cookie, origin: 'https://evil.example' }, 403],
+        [{ host: authority, cookie, 'sec-fetch-site': 'cross-site' }, 403]
+      ]) await statusRoute.handler({ method, headers }, { writeHead: code => assert.equal(code, expected), end() {} });
+    }
+    console.log('真实 Connection 鉴权通过：无 cookie/伪造 cookie 返回 401，恶意 Host/Origin/跨站返回 403（GET 与 POST）');
     await scope.fiber.dispose();
     for (const [key, value] of Object.entries(beforeEnv)) assert.equal(process.env[key], value, key);
     console.log('真实 Cordis 卸载恢复策略及环境成功');

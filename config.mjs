@@ -22,6 +22,6 @@ export function normalizeProxy(text) {
   let url;
   try { url = new URL(text.includes('://') ? text.trim() : `http://${text.trim()}`); }
   catch { throw new Error('代理地址无效，请填写 http://127.0.0.1:端口。'); }
-  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || !url.port || Number(url.port) < 1 || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('仅支持无认证的本机 HTTP／混合代理端口，例如 http://127.0.0.1:7897。');
+  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || Number(url.port || 80) < 1 || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('仅支持无认证的本机 HTTP／混合代理端口，例如 http://127.0.0.1:7897。');
   return url.origin;
 }

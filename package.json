@@ -1,12 +1,12 @@
 {
   "name": "dsh-plugin-auto-proxy",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "DSH 自动检测并连接本机 HTTP／混合代理，无需 TUN 或专用启动器。",
   "type": "module",
   "main": "index.mjs",
   "exports": { ".": "./index.mjs", "./client": "./client.js" },
-  "files": ["index.mjs", "config.mjs", "client.js", "lib", "cordis.patch.yml", "README.md", "VALIDATION.md"],
-  "engines": { "node": ">=22.21", "dsh": ">=0.2.1-rc.2 <0.3.0" },
+  "files": ["index.mjs", "config.mjs", "client.js", "lib", "cordis.patch.yml", "README.md", "VALIDATION.md", "CHANGELOG.md", "RELEASING.md", "ACKNOWLEDGEMENTS.md"],
+  "engines": { "node": ">=22.21", "dsh": "0.2.1-rc.2" },
   "peerDependencies": { "@deepseek-ai/dsh-http-proxy": "0.2.1-rc.2", "@deepseek-ai/schemastery": "^3.18.5" },
   "peerDependenciesMeta": { "@deepseek-ai/dsh-http-proxy": { "optional": true }, "@deepseek-ai/schemastery": { "optional": true } },
   "dsh": {

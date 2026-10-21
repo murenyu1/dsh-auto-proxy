@@ -2,17 +2,21 @@
 
 在 DSH 内开启开关并保存，发现本机 HTTP／混合代理端口，并接入已经运行的 DSH。无需开启 TUN 或全局模式，无需专用启动器。
 
-适配并验证的宿主：Windows、DeepSeek Harness **0.2.1-rc.2**。已实测从 Clash Verge 配置自动识别混合端口 **7897**。其他代理软件可以通过已启用的 Windows 本机系统代理设置被发现，或手动填写其 HTTP／混合代理地址；未验证所有软件的专有配置格式。插件不会启动代理软件。代理软件内的规则决定后续线路，某个网站如果被其规则拒绝，插件无法代替它选择节点。仅提供 SOCKS 端口或 VPN 隧道、没有 HTTP／混合代理端口的软件不能直接接入。
+本插件参考了 **SuiSuiNian721 的 [codex-connection-monitor](https://github.com/SuiSuiNian721/codex-connection-monitor)**，特别是其“固定本地代理入口、动态切换上游”的设计思路。感谢原作者及贡献者。本插件面向 DSH 的插件生命周期、原生代理 API 和设置面板进行适配，参考范围见 [参考与致谢](ACKNOWLEDGEMENTS.md)。
+
+当前版本 **1.0.4**，支持的宿主版本限定为已验证的 DeepSeek Harness **0.2.1-rc.2**，运行环境为 Node **22.21+**；真实宿主联网验收在 Windows 完成。已实测从 Clash Verge 配置自动识别混合端口 **7897**。其他代理软件可以通过已启用的 Windows 本机系统代理设置被发现，或手动填写其 HTTP／混合代理地址；未验证所有软件的专有配置格式。插件不会启动代理软件。代理软件内的规则决定后续线路，某个网站如果被其规则拒绝，插件无法代替它选择节点。仅提供 SOCKS 端口或 VPN 隧道、没有 HTTP／混合代理端口的软件不能直接接入。
 
 ## 安装和使用
 
-推荐在 DSH 插件管理页面通过“本地安装包”入口（如果该版本提供）选择 `downloads/dsh-plugin-auto-proxy-1.0.3.tgz`。也可在 PowerShell 中执行：
+推荐在 DSH 插件管理页面通过“本地安装包”入口（如果该版本提供）选择 `dsh-plugin-auto-proxy-1.0.4.tgz`。源码 checkout 生成的包位于 `downloads/`；下载 Release 附件后使用实际保存位置。
+
+对于使用 CLI 管理的部署，在安装包所在目录执行（将 `web` 换为实际 profile）：
 
 ```powershell
-& 'D:\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd' plugin --profile desktop add 'D:\Projects\插件开发\dsh-auto-proxy\downloads\dsh-plugin-auto-proxy-1.0.3.tgz' --ignore-scripts
+dsh plugin --profile web add ./dsh-plugin-auto-proxy-1.0.4.tgz --ignore-scripts
 ```
 
-`desktop` 是 Windows 桌面版使用的 profile；其他部署请填实际 profile。安装命令只用于登记插件，不是日后启动 DSH 的入口。安装新插件是否需要宿主重新加载由 DSH 管理器决定；插件加载后，开关和代理切换不需要重启 DSH。
+官方桌面版的 profile 由应用管理，请优先使用应用内安装入口。安装命令只用于登记插件，不是日后启动 DSH 的入口。安装新插件是否需要宿主重新加载由 DSH 管理器决定；插件加载后，开关和代理切换不需要重启 DSH。
 
 1. 正常启动代理软件和 DSH。
 2. 在 DSH 插件管理中找到 **dsh-plugin-auto-proxy**，展开设置。
@@ -23,6 +27,8 @@
 关闭“开启自动代理”并保存，会恢复插件开启前 DSH 的代理策略。卸载也会清理入口及恢复策略。卸载操作交由 DSH 原生插件管理器处理。
 
 ## 实现与范围
+
+1.0.4 修复普通 HTTP 响应中途断开造成下游持续等待的问题，补充响应头绝对超时、取消清理、异常升级响应处理及双方逐跳头过滤。前后端均接受默认 HTTP 端口 80（省略端口同样表示 80）。状态请求保留部署子路径，并设有 10 秒截止时间，避免一次挂起请求阻断后续轮询。
 
 1.0.2 修复辅助发现失败导致已解析端口丢失的问题：注册表或 PowerShell 读取失败会保留已有候选，并在状态卡片显示提示；注册表权限拒绝时停止后续辅助扫描。后续配置文件读取失败时同样保留已有候选。没有任何候选时不会假报已连接。关闭状态仍每秒检查开关变化，但不再重复清理或重建状态；默认关闭及用户已有启用选择均保持原样。
 
@@ -42,7 +48,7 @@ DSH 正常启动时未设置其他代理变量的情况下，新启动的命令�
 
 ## 开发和验收
 
-无需构建前端或下载宿主 SDK。宿主 peer 依赖标记为 optional，避免安装器下载另一份代理模块，运行时使用 DSH 原生包解析。
+无需构建前端或下载宿主 SDK。宿主 peer 依赖标记为 optional，运行时使用 DSH 原生包解析。版本升级前应重新核对宿主 API 和兼容性，不通过安装另一份代理模块解决宿主不兼容问题。
 
 ```powershell
 node --test tests/*.test.mjs
@@ -60,8 +66,8 @@ Remove-Item Env:ELECTRON_RUN_AS_NODE
 
 去掉 `--clean-proxy-env` 可检查保留已有启动代理时的提示与恢复行为。测试使用真实 DSH `PluginPackages` 解析依赖与 `HttpFetchProvider` 抓取，不替换网络实现。
 
-参见 [VALIDATION.md](VALIDATION.md) 查看测试范围及尚未验证的界面项目。
+参见 [VALIDATION.md](VALIDATION.md) 查看本次检测结果、测试范围及尚未验证的界面项目。这里只证明本地测试结果；公开发布及市场收录尚需按照发布指南完成。
 
 版本记录见 [CHANGELOG.md](CHANGELOG.md)，Git 分支、标签和发布步骤见 [RELEASING.md](RELEASING.md)。
 
-参考：[Codex 固定代理入口设计](https://github.com/SuiSuiNian721/codex-connection-monitor/blob/main/README-ProxyRouting.md)、[DSH 官方代理文档](https://deepseek-harness.github.io/deepseek-harness/guide/network-proxy)、[DSH 代理 API 源码](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/util/http-proxy/src/index.ts)。实现为独立编写。
+参考：[Codex 固定代理入口设计](https://github.com/SuiSuiNian721/codex-connection-monitor/blob/main/README-ProxyRouting.md)、[DSH 官方代理文档](https://deepseek-harness.github.io/deepseek-harness/guide/network-proxy)、[DSH 代理 API 源码](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/util/http-proxy/src/index.ts)。详细说明见 [参考与致谢](ACKNOWLEDGEMENTS.md)。

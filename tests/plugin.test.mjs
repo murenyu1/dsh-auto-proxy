@@ -36,8 +36,9 @@ test('状态接口先做 DSH Connection 鉴权，只接受 GET/POST', async () =
   } finally { for (const cleanup of cleanups.reverse()) await cleanup?.(); }
 });
 
-test('前端模块登记原生设置卡片，开关、地址及间隔使用配置表单保存', () => {
+test('前端设置保存、相对状态路径、请求截止时间及卸载取消符合契约', async () => {
   let plugin, fields, registered, saved = 0, modelDisposed = false;
+  const effects = [], requests = [];
   const values = { enabled: 'false', manualProxy: '', interval: '10' };
   class Form {
     constructor(_scope, definitions) { fields = definitions; }
@@ -50,11 +51,12 @@ test('前端模块登记原生设置卡片，开关、地址及间隔使用配�
   const React = {
     createElement: (type, props, ...children) => ({ type, props, children }),
     useSyncExternalStore: (_subscribe, snapshot) => snapshot(),
-    useState: value => [value, () => {}], useCallback: fn => fn, useEffect() {}
+    useState: value => [value, () => {}], useCallback: fn => fn, useEffect: callback => effects.push(callback)
   };
   vm.runInNewContext(fs.readFileSync(new URL('../client.js', import.meta.url), 'utf8'), {
     window: { __ModuleLoader__: { load: entry => { plugin = entry.factory(name => name === 'react' ? React : { SettingsForm: 'NativeForm', SettingsFormModel: Form }); } } },
-    URL, Date, fetch: () => { throw new Error('渲染测试不发网络请求'); }, setInterval, clearInterval, AbortController
+    URL, Date, fetch: async (path, options) => { requests.push({ path, options }); return { ok: true, json: async () => ({ phase: 'disabled' }) }; }, setInterval: () => 1, clearInterval() {}, AbortController,
+    AbortSignal: { timeout: ms => { assert.equal(ms, 10_000); return AbortSignal.timeout(ms); }, any: signals => AbortSignal.any(signals) }
   });
   const cleanups = [];
   plugin.apply({
@@ -71,8 +73,20 @@ test('前端模块登记原生设置卡片，开关、地址及间隔使用配�
     assert.equal(parse('interval')('10').value, 10);
     assert.equal(parse('interval')('0'), undefined);
     assert.equal(parse('manualProxy')('http://127.0.0.1:7897').value, 'http://127.0.0.1:7897');
+    assert.equal(parse('manualProxy')('http://127.0.0.1:80').value, 'http://127.0.0.1:80');
+    assert.equal(parse('manualProxy')('http://localhost').value, 'http://localhost');
     assert.equal(parse('manualProxy')('http://127.0.0.1:0'), undefined);
     assert.equal(parse('manualProxy')('socks5://127.0.0.1:7898'), undefined);
+    const stopPolling = effects[0]();
+    await new Promise(resolve => setImmediate(resolve));
+    const button = tree.children[0].children.find(child => child?.type === 'button');
+    await button.props.onClick();
+    assert.deepEqual(requests.map(item => item.options.method), ['GET', 'POST']);
+    for (const { path, options } of requests) {
+      assert.equal(new URL(path, 'https://host.example/dsh/').pathname, '/dsh/plugins/auto-proxy/state');
+      assert.equal(options.credentials, 'same-origin'); assert.equal(options.signal.aborted, false);
+    }
+    stopPolling(); assert.equal(requests[0].options.signal.aborted, true);
   } finally { for (const cleanup of cleanups.reverse()) cleanup?.(); }
   assert.equal(modelDisposed, true);
 });

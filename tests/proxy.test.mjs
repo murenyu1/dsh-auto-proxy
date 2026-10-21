@@ -11,6 +11,10 @@ import { ProxyController } from '../lib/controller.mjs';
 test('只接受无凭据的本机 HTTP 代理，拒绝远程、SOCKS、路径和注入', () => {
   assert.equal(normalizeProxy('127.0.0.1:7897'), 'http://127.0.0.1:7897');
   assert.equal(normalizeProxy('http://[::1]:7897'), 'http://[::1]:7897');
+  assert.equal(normalizeProxy('127.0.0.1:80'), 'http://127.0.0.1');
+  assert.equal(normalizeProxy('http://localhost:80'), 'http://localhost');
+  assert.equal(normalizeProxy('http://[::1]:80'), 'http://[::1]');
+  assert.equal(normalizeProxy('http://127.0.0.1'), 'http://127.0.0.1');
   for (const url of ['socks5://127.0.0.1:1080', 'http://example.com:7897', 'http://user:secret@127.0.0.1:7897', 'http://127.0.0.1:7897/x', 'http://127.0.0.1:7897/?x=1', '127.0.0.1:0', '127.0.0.1:65536', '127.0.0.1:7897\r\nHost: evil']) assert.throws(() => normalizeProxy(url), /代理/);
   assert.throws(() => readConfig({ interval: 0 }), /间隔/);
   assert.equal(readConfig({ enabled: { get: () => true } }).enabled, true);
@@ -110,6 +114,18 @@ test('GitHub 不可达时断开上游，后续自动检测可恢复', async () =
     await controller.sync({ enabled: true }); await controller.pending;
     assert.equal(controller.snapshot().phase, 'offline'); assert.equal(events.at(-1), undefined);
     works = true; await controller.refresh(); assert.equal(controller.snapshot().phase, 'connected');
+  } finally { await controller.dispose(); }
+});
+
+test('修改检测间隔立即应用，不继续等待旧的长间隔，也不重装代理入口', async () => {
+  let scans = 0;
+  const { controller, events } = fixture({ discovery: async () => { scans++; return [{ url: 'http://127.0.0.1:7897', source: 'test' }]; } });
+  try {
+    await controller.sync({ enabled: true, interval: 300 }); await controller.pending;
+    assert.equal(scans, 1); assert.ok(controller.nextCheck > Date.now() + 290_000);
+    await controller.sync({ enabled: true, interval: 5 }); await controller.pending;
+    assert.equal(scans, 2); assert.ok(controller.nextCheck <= Date.now() + 5000);
+    assert.equal(events.filter(item => item === 'install').length, 1);
   } finally { await controller.dispose(); }
 });
 

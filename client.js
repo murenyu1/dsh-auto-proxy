@@ -10,7 +10,7 @@ window.__ModuleLoader__.load({
       constructor(scope) {
         this.form = new SettingsFormModel(scope, [
           { field: 'enabled', format: value => String(value ?? false), parse: text => ['true', 'false'].includes(text) ? { kind: 'set', value: text === 'true' } : undefined },
-          { field: 'manualProxy', format: value => value ?? '', parse: text => { try { if (/[\x00-\x1f\x7f]/.test(text)) return undefined; if (text.trim()) { const url = new URL(text.includes('://') ? text.trim() : `http://${text.trim()}`); if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || !url.port || Number(url.port) < 1 || url.username || url.password || url.pathname !== '/' || url.search || url.hash) return undefined; } return { kind: 'set', value: text.trim() }; } catch { return undefined; } } },
+          { field: 'manualProxy', format: value => value ?? '', parse: text => { try { if (/[\x00-\x1f\x7f]/.test(text)) return undefined; if (text.trim()) { const url = new URL(text.includes('://') ? text.trim() : `http://${text.trim()}`); if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || Number(url.port || 80) < 1 || url.username || url.password || url.pathname !== '/' || url.search || url.hash) return undefined; } return { kind: 'set', value: text.trim() }; } catch { return undefined; } } },
           { field: 'interval', format: value => String(value ?? 10), parse: text => Number.isInteger(Number(text)) && Number(text) >= 5 && Number(text) <= 300 ? { kind: 'set', value: Number(text) } : undefined }
         ]);
         this.actions = this.form.actions();
@@ -26,7 +26,8 @@ window.__ModuleLoader__.load({
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
       const request = React.useCallback(async (method = 'GET', signal) => {
-        const response = await fetch('/plugins/auto-proxy/state', { method, credentials: 'same-origin', cache: 'no-store', signal });
+        const deadline = AbortSignal.timeout(10_000);
+        const response = await fetch('plugins/auto-proxy/state', { method, credentials: 'same-origin', cache: 'no-store', signal: signal ? AbortSignal.any([signal, deadline]) : deadline });
         if (!response.ok) throw new Error(`无法读取自动代理状态（HTTP ${response.status}）。`);
         return response.json();
       }, []);

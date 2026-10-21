@@ -30,6 +30,108 @@ function tunnel(proxy, authority = 'github.com:443', headers = {}) {
   });
 }
 
+function httpRequest(proxy, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.get({ hostname: '127.0.0.1', port: new URL(proxy).port, path: 'http://example.com/resource', headers, agent: false }, res => {
+      let body = '';
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body, aborted: false }));
+      res.on('error', () => resolve({ status: res.statusCode, aborted: true }));
+    });
+    const timer = setTimeout(() => { req.destroy(); reject(new Error('HTTP 转发未及时结束')); }, 2000);
+    req.once('close', () => clearTimeout(timer));
+    req.on('error', reject);
+  });
+}
+
+test('HTTP 响应中途断开时下游立即失败，不能持续等待或误报完整响应', async () => {
+  const upstream = await serverFixture(socket => socket.once('data', () => {
+    socket.write('HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\npartial');
+    setTimeout(() => socket.destroy(), 20);
+  }));
+  const relay = await createRelay(); relay.setUpstream(upstream.url);
+  try { assert.equal((await httpRequest(relay.url)).aborted, true); }
+  finally { await relay.close(); await upstream.close(); }
+});
+
+test('HTTP 静默和慢速响应头均在绝对截止时间内返回 504', async () => {
+  for (const trickle of [false, true]) {
+    const upstream = await serverFixture(socket => {
+      if (!trickle) return;
+      socket.write('HTTP/1.1 200 OK\r\nX-Slow: ');
+      const timer = setInterval(() => socket.write('H'), 10);
+      socket.once('close', () => clearInterval(timer));
+    });
+    const relay = await createRelay({ responseTimeout: 80 }); relay.setUpstream(upstream.url);
+    try { assert.equal((await httpRequest(relay.url)).status, 504); }
+    finally { await relay.close(); await upstream.close(); }
+  }
+});
+
+test('HTTP 转发过滤双方逐跳头和代理凭据，并使用目标 Host', async () => {
+  let received;
+  const upstream = http.createServer((req, res) => {
+    received = req.headers;
+    res.writeHead(200, { connection: 'close, x-private', 'x-private': 'hidden', 'x-public': 'visible' }); res.end('ok');
+  });
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve));
+  const relay = await createRelay(); relay.setUpstream(`http://127.0.0.1:${upstream.address().port}`);
+  try {
+    const result = await httpRequest(relay.url, { host: 'incorrect.example', connection: 'close, x-private', 'x-private': 'hidden', 'proxy-authorization': 'Basic secret', 'x-public': 'visible' });
+    assert.equal(result.body, 'ok'); assert.equal(received.host, 'example.com');
+    assert.equal(received['x-private'], undefined); assert.equal(received['proxy-authorization'], undefined); assert.equal(received['x-public'], 'visible');
+    assert.equal(result.headers['x-private'], undefined); assert.equal(result.headers['x-public'], 'visible');
+  } finally { await relay.close(); await new Promise(resolve => upstream.close(resolve)); }
+});
+
+test('HTTP 不支持的升级响应返回 502，断连不会留下挂起请求', async () => {
+  const upstream = await serverFixture(socket => socket.once('data', () => socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n')));
+  const relay = await createRelay(); relay.setUpstream(upstream.url);
+  try { assert.equal((await httpRequest(relay.url)).status, 502); }
+  finally { await relay.close(); await upstream.close(); }
+});
+
+test('HTTP 下游取消会关闭正在传输的上游连接', async () => {
+  let opened;
+  const accepted = new Promise(resolve => { opened = resolve; });
+  const upstream = await serverFixture(socket => socket.once('data', () => {
+    socket.write('HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\ndata\r\n');
+    opened(socket);
+  }));
+  const relay = await createRelay(); relay.setUpstream(upstream.url);
+  let req;
+  try {
+    const ready = new Promise(resolve => {
+      req = http.get({ hostname: '127.0.0.1', port: new URL(relay.url).port, path: 'http://example.com/', agent: false }, res => { res.on('error', () => {}); res.once('data', resolve); });
+      req.on('error', () => {});
+    });
+    const socket = await accepted;
+    const closed = new Promise(resolve => socket.once('close', resolve));
+    await ready; req.destroy();
+    await Promise.race([closed, new Promise((_resolve, reject) => { const timer = setTimeout(() => reject(new Error('上游连接未随下游取消关闭')), 1000); timer.unref(); })]);
+    assert.equal(socket.destroyed, true);
+  } finally { req?.destroy(); await relay.close(); await upstream.close(); }
+});
+
+test('插件卸载会关闭未结束的 HTTP 响应和上游连接', async () => {
+  const upstream = await serverFixture(socket => socket.once('data', () => {
+    socket.write('HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\npartial');
+  }));
+  const relay = await createRelay(); relay.setUpstream(upstream.url);
+  let req;
+  try {
+    let started;
+    const ready = new Promise(resolve => { started = resolve; });
+    const result = new Promise((resolve, reject) => {
+      req = http.get({ hostname: '127.0.0.1', port: new URL(relay.url).port, path: 'http://example.com/', agent: false }, res => {
+        res.once('data', started); res.on('error', () => resolve('aborted')); res.on('end', () => resolve('complete'));
+      });
+      req.on('error', reject);
+    });
+    await ready; await relay.close(); assert.equal(await result, 'aborted');
+  } finally { req?.destroy(); await relay.close(); await upstream.close(); }
+});
+
 test('拒绝入口自循环，包括 localhost 和 IPv6 别名', async () => {
   const relay = await createRelay();
   const port = new URL(relay.url).port;
