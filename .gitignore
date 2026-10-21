@@ -1,0 +1,21 @@
+node_modules/
+.npm-cache/
+.host-check/
+
+# Generated archives, logs, extracted packages and local profile backups.
+/downloads/
+/validation/
+/REVIEW.md
+/回复.md
+*.log
+
+# Local credentials and editor/OS files.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

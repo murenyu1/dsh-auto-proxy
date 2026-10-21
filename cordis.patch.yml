@@ -1,0 +1,3 @@
+- insert:
+    - id: auto-proxy
+      name: dsh-plugin-auto-proxy

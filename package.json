@@ -1,0 +1,18 @@
+{
+  "name": "dsh-plugin-auto-proxy",
+  "version": "1.0.2",
+  "description": "DSH 自动检测并连接 Clash Verge 本地代理，无需 TUN 或专用启动器。",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": { ".": "./index.mjs", "./client": "./client.js" },
+  "files": ["index.mjs", "config.mjs", "client.js", "lib", "cordis.patch.yml", "README.md", "VALIDATION.md"],
+  "engines": { "node": ">=22.21", "dsh": ">=0.2.1-rc.2 <0.3.0" },
+  "peerDependencies": { "@deepseek-ai/dsh-http-proxy": "0.2.1-rc.2", "@deepseek-ai/schemastery": "^3.18.5" },
+  "peerDependenciesMeta": { "@deepseek-ai/dsh-http-proxy": { "optional": true }, "@deepseek-ai/schemastery": { "optional": true } },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-settings", "@deepseek-ai/dsh-client-ui-plugin-manager"] }
+  },
+  "scripts": { "test": "node --test tests/*.test.mjs", "pack:plugin": "npm pack --ignore-scripts --pack-destination downloads" },
+  "license": "MIT"
+}
