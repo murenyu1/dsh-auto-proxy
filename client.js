@@ -39,7 +39,7 @@ window.__ModuleLoader__.load({
       const disabled = !state.writable || state.saving;
       return h(SettingsForm, { state, labels: { unavailable: '插件尚未加载。', readOnly: '当前设置为只读。', saveFailed: '保存失败，请保留修改后重试。', save: '保存并应用', saving: '保存中…' }, onSave: () => controller.actions.save(), onDiscard: controller.actions.discard },
         h('div', { style: box },
-          h('h3', { style: { margin: 0 } }, 'Clash Verge 自动代理'),
+          h('h3', { style: { margin: 0 } }, '自动代理'),
           h('p', { style: { margin: 0, opacity: 0.75 } }, '正常启动 DSH 后，在这里开启并保存。自动检测本地 HTTP／混合端口，无需全局模式或 TUN。'),
           h('label', null, h('input', { type: 'checkbox', checked: state.enabled, disabled, onChange: event => controller.actions.edit('enabled', String(event.target.checked)) }), ' 开启自动代理'),
           h('label', null, '手动代理地址（留空自动检测）', h('input', { style: input, placeholder: 'http://127.0.0.1:7897', value: state.manualProxy, disabled, onChange: event => controller.actions.edit('manualProxy', event.target.value) })),
@@ -48,7 +48,7 @@ window.__ModuleLoader__.load({
           h('div', { role: 'status', style: { ...box, padding: 12 } },
             h('strong', null, labels[status?.phase] || '正在读取状态…'),
             h('span', null, status?.message || ''),
-            status?.upstream ? h('span', null, `Clash 端口：${status.upstream}（${status.source}）`) : null,
+            status?.upstream ? h('span', null, `代理地址：${status.upstream}（${status.source}）`) : null,
             status?.entry ? h('span', null, `DSH 本地入口：${status.entry}`) : null,
             status?.checkedAt ? h('span', null, `最近检测：${new Date(status.checkedAt).toLocaleTimeString('zh-CN')}`) : null,
             ...(status?.warnings || []).map((text, index) => h('p', { key: index }, text)),

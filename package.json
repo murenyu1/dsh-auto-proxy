@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-auto-proxy",
-  "version": "1.0.2",
-  "description": "DSH 自动检测并连接 Clash Verge 本地代理，无需 TUN 或专用启动器。",
+  "version": "1.0.3",
+  "description": "DSH 自动检测并连接本机 HTTP／混合代理，无需 TUN 或专用启动器。",
   "type": "module",
   "main": "index.mjs",
   "exports": { ".": "./index.mjs", "./client": "./client.js" },
