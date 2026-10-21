@@ -707,7 +707,7 @@ window.__ModuleLoader__.load({
         // 紧凑底部辅助提示
         h('div', { style: { padding: '4px 2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'var(--dsw-alias-label-secondary, #8b949e)' } },
           h('span', null, '与侧边栏/底部栏/设置页实时同步'),
-          h('span', { style: { fontFamily: 'monospace', opacity: 0.7 } }, 'v1.0.5')
+          h('span', { style: { fontFamily: 'monospace', opacity: 0.7 } }, 'v1.0.6')
         )
       );
     }
@@ -727,25 +727,44 @@ window.__ModuleLoader__.load({
         style: {
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 8,
-          padding: '2px 10px',
-          borderRadius: 14,
-          backgroundColor: 'var(--dsw-alias-bg-layer-1, rgba(255, 255, 255, 0.05))',
-          border: '1px solid var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.1))',
+          gap: 6,
+          padding: '2px 8px',
+          borderRadius: 12,
+          backgroundColor: 'var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, 0.04))',
+          border: '1px solid var(--dsw-alias-border-l1, rgba(120, 120, 128, 0.18))',
           fontSize: 12,
-          color: 'var(--dsw-alias-label-primary, inherit)',
+          color: 'var(--dsw-alias-label-secondary, #8b949e)',
           cursor: 'pointer',
           userSelect: 'none',
+          lineHeight: '18px',
           transition: 'all 0.15s ease'
         },
         title: '自动代理状态 - 点击切换启停',
         onClick: () => hub.toggleEnabled()
       },
-        h('span', { style: { width: 6, height: 6, borderRadius: '50%', backgroundColor: theme.dot, flexShrink: 0 } }),
-        h('span', { style: { fontWeight: 500 } }, '自动代理:'),
-        h('span', { style: { color: theme.color, fontFamily: status?.upstream ? 'monospace' : 'inherit' } },
-          form?.enabled ? (status?.upstream || labels[status?.phase] || '运行中') : '已关闭'
-        )
+        h('span', {
+          style: {
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            backgroundColor: theme.dot,
+            flexShrink: 0,
+            display: 'inline-block'
+          }
+        }),
+        h('span', {
+          style: {
+            color: 'var(--dsw-alias-label-secondary, #8b949e)',
+            fontWeight: 400
+          }
+        }, '自动代理:'),
+        h('span', {
+          style: {
+            color: form?.enabled ? theme.color : 'var(--dsw-alias-label-secondary, #8b949e)',
+            fontFamily: status?.upstream ? 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' : 'inherit',
+            fontWeight: 400
+          }
+        }, form?.enabled ? (status?.upstream || labels[status?.phase] || '运行中') : '已关闭')
       );
     }
 
