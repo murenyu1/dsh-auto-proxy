@@ -4,9 +4,9 @@
 
 ## 公开仓库
 
-用户 GitHub 账号为 `murenyu1`，建议仓库名沿用 `dsh-auto-proxy`，拟使用 `https://github.com/murenyu1/dsh-auto-proxy`。截至本次验收，用户确认尚未创建仓库；本文中的地址是发布准备，不是已经可用的下载源。
+公开源码仓库为 [murenyu1/dsh-auto-proxy](https://github.com/murenyu1/dsh-auto-proxy)，默认分支为 `main`。仓库已添加 `dsh-plugin` topic，源码和参考致谢已推送。
 
-创建公开仓库后，为仓库添加 `dsh-plugin` topic。将 `package.json` 的 `repository` 与 `homepage` 设置为实际创建的仓库地址，再重新打包和校验；这是 npm 包与社区仓库自动关联的依据。若实际仓库名称不同，使用真实地址，不提交占位 URL。
+`package.json` 已声明实际 `repository`、`homepage` 与问题反馈地址。后续迁移仓库时同步更新这些字段并重新验证打包产物；这是 npm 包与社区仓库自动关联的依据。
 
 源码、测试、README、CHANGELOG、VALIDATION、RELEASING 和 MIT 许可证进入 Git。`downloads/`、`validation/`、缓存及本机备份被忽略，不应上传整个工作目录。
 
@@ -47,7 +47,7 @@ git commit -m "修复代理转发异常并完成 1.0.4 发布前验证"
 git tag -a v1.0.4 -m "自动代理插件 1.0.4"
 ```
 
-本轮修复不会自动创建 Git 标签、推送仓库或发布外部资源。后续使用当前实际分支配置远程并推送，不覆盖远程已有历史。
+发布操作须分别检查提交、远程分支、标签和 Release；仅生成 tgz 不会发布它。后续使用当前实际分支推送，不覆盖远程已有历史。
 
 ## 发布来源
 
@@ -57,7 +57,7 @@ git tag -a v1.0.4 -m "自动代理插件 1.0.4"
 https://github.com/murenyu1/dsh-auto-proxy/releases/download/v1.0.4/dsh-plugin-auto-proxy-1.0.4.tgz
 ```
 
-上述地址只有在真实仓库、标签、Release 和附件创建后才有效。不要把带版本文件名放到 `releases/latest/download/`，否则下次发版后链接可能失效。
+每次发布后都要验证下载与本地 SHA256 一致。不要把带版本文件名放到 `releases/latest/download/`，否则下次发版后链接可能失效。
 
 也可在 npm 确认包名归属并登录后，发布同一份已经验证的 tgz。公开发布前补齐实际 `repository`；包名可用性、账号权限和发布是否成功必须分别确认。不要运行依赖缓存或日志中的不明命令。
 
@@ -65,7 +65,9 @@ https://github.com/murenyu1/dsh-auto-proxy/releases/download/v1.0.4/dsh-plugin-a
 
 本机安装的 `dshmarket` 使用 [awesome-dsh-plugin 社区目录](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)。它的 [贡献指南](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md) 要求：公开仓库创建满 1 天、添加 `dsh-plugin` topic、具有可安装的 `dsh.bundle`、真实可用的实现和准确描述。维护者仍会审核源码及是否与现有条目重复。
 
-仓库和 Release 就绪后，向该目录添加一个文件 `data/plugins/murenyu1__dsh-auto-proxy.yml` 并提 PR，不手工修改自动生成的 README。以下是按拟定仓库名准备的条目，提交前逐项验证 URL：
+仓库创建时间为北京时间 **2026-10-22 03:25:23**，满足满 1 天条件的时间为 **2026-10-23 03:25:23**。用户选择届时手动继续，不设置自动任务。
+
+条件满足且 Release 附件可下载后，向该目录添加一个文件 `data/plugins/murenyu1__dsh-auto-proxy.yml` 并提 PR，不手工修改自动生成的 README。以下是待提交的条目：
 
 ```yaml
 url: https://github.com/murenyu1/dsh-auto-proxy
@@ -77,7 +79,7 @@ description:
 tarball: https://github.com/murenyu1/dsh-auto-proxy/releases/download/v1.0.4/dsh-plugin-auto-proxy-1.0.4.tgz
 ```
 
-这些是发布准备材料，尚未提交目录 PR。合并和收录时间由目录维护者及其流水线决定。
+目前尚未提交目录 PR。合并和收录时间由目录维护者及其流水线决定。
 
 ## DSH 原生自定义市场
 
